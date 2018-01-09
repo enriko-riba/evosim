@@ -1,56 +1,73 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Linq;
 
 namespace EvoSim
 {
     class Simulator
     {
-        private List<Entity> entities = new List<Entity>();
-        private Random r = new Random();
+        private IEntityHandler handler;
+        private List<SimEntity> entities = new List<SimEntity>();
 
-        private int generation = 0;
-        private int entityCount = 1000;
+        public Simulator(IEntityHandler handler, int entityCount)
+        {
+            this.handler = handler;
+            this.entityCount = entityCount;
+        }
+
+
+        private int generation;
+        private int entityCount;
 
         public void InitPopulation()
         {
-            for(int i =0; i< entityCount; i++)
+            generation = 0;
+            for (int i =0; i< entityCount; i++)
             {
-                var entity = new Entity();
-                this.entities.Add(entity);
+                this.entities.Add(handler.CreateEntity());
+            }
+        }
 
-                //  generate 2-4 nodes
-                //  generate connections, max connections = (n*(n-1))/2
-                var n = r.Next(2, 5);
-                var c = (n * (n - 1)) / 2;
+        public void Advance()
+        {
+            Simulate();
+            FinishStep();
+        }
 
-                entity.Name = $"N{n}C{c}";
-                for (int x = 0; x < n; x++)
-                {
-                    var comp = new Component()
-                    {
-                        Kind = 1,
-                        Name = $"Node{x + 1}",
-                        Attributes = new float[] { r.Next(50, 150)/100.0f } //  range 0.5 - 1.5
-                    };
-                    entity.Components.Add(comp);
-                }
+        private void Simulate()
+        {
 
-                for (int x = 0; x < c; x++)
-                {
-                    var comp = new Component()
-                    {
-                        Kind = 1,
-                        Name = $"Connection{x + 1}",
-                        Attributes = new float[3] 
-                        {
-                            (float)r.Next(1, 5),    //  length 1-5
-                            r.Next(3, 9)/10.0f,     //  contraction 0.3 - 0.9
-                            (float)r.Next(1, 5),    //  period 1s - 5s
-                        } 
-                    };
-                    entity.Components.Add(comp);                    
-                }
+        }
+
+        private void FinishStep()
+        {
+            UpdateFitness();
+            this.entities.Sort((e1, e2) => Math.Sign(e1.Fitness - e2.Fitness));
+            var sumFit = this.entities.Sum(e => e.Fitness);
+            var avgFit = sumFit / entityCount;
+
+            Console.WriteLine("Generation {0} avg fitness: {1}", generation, avgFit);
+            Console.WriteLine("< avg: {0}, >= avg: {1}", 
+                        entities.Where(e=> e.Fitness < avgFit).Count(), 
+                        entities.Where(e=> e.Fitness >= avgFit).Count());
+
+            generation++;
+        }
+
+        private void UpdateFitness()
+        {
+            for (int i = 0; i < entityCount; i++)
+            {
+                var fit = handler.EvaluateFitness(this.entities[i]);
+                this.entities[i].Fitness = fit;
+            }
+        }
+
+        private void MutatePopulation()
+        {
+            for (int i = 0; i < entityCount; i++)
+            {
+                var me = handler.MutateEntity(this.entities[i]);
             }
         }
     }

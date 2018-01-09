@@ -6,9 +6,24 @@ namespace EvoSim
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
-            var s = new Simulator();
+            var h = new Test1.Testhandler();
+            var s = new Simulator(h, 1000);
             s.InitPopulation();
+
+            Console.WriteLine("Created population.");
+            Console.WriteLine("Press a to advance, esc to exit");
+            while (true)
+            {
+                var k = Console.ReadKey(true);
+                if (k.Key == ConsoleKey.A)
+                {
+                    s.Advance();
+                }
+                else if (k.Key == ConsoleKey.Escape)
+                {
+                    break;
+                }
+            }
         }
     }
 }
