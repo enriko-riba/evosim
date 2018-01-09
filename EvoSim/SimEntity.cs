@@ -17,7 +17,7 @@ namespace EvoSim
 
         public string Genome { get; set; }
 
-        public int[] CustomDataArr { get; set; }
+        public int[] CustomData { get; set; }
 
         public override string ToString() => $"{Generation}-{Name}";
     }

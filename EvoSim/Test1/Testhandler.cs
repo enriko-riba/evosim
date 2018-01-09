@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 
 namespace EvoSim.Test1
 {
@@ -6,7 +7,8 @@ namespace EvoSim.Test1
     {
         const int NODE_KIND = 0;
         const int CONNECTION_KIND = 1;
-        
+        const int MIN_NODES = 2;
+        const int MAX_NODES = 4;
         private Random r = new Random();
 
         public SimEntity CreateEntity(string genome)
@@ -45,48 +47,62 @@ namespace EvoSim.Test1
 
         public SimEntity CreateEntity()
         {
-            var entity = new SimEntity();
+            var entity = new SimEntity();            
+
+            //  generate random node count
+            var nodeCount = r.Next(MIN_NODES, MAX_NODES + 1);
             
+            //  max connections = n * (n-1) / 2
+            var maxConnections = (nodeCount * (nodeCount - 1)) / 2;
+            var connectionCount = r.Next(nodeCount-1, maxConnections + 1); 
 
-            //  generate 2-4 nodes
-            //  generate connections, max connections = (n*(n-1))/2
-            var n = r.Next(2, 5);
-            var c = (n * (n - 1)) / 2;
-
-            entity.Name = $"N{n}C{c}";
-            for (int x = 0; x < n; x++)
+            entity.Name = $"N{nodeCount}C{connectionCount}";
+            for (int n = 0; n < nodeCount; n++)
             {
                 var comp = new SimComponent()
                 {
                     Kind = NODE_KIND,
-                    Name = $"Node{x + 1}",
+                    Name = $"Node{n}",
                     Attributes = new float[] { RandomFriction() } //  range 0.5 - 1.5
                 };
                 entity.Components.Add(comp);
             }
 
-            for (int x = 0; x < c; x++)
+            int connectionCounter = 0;
+            for(int n = 0; n<nodeCount-1; n++ )
             {
-                var comp = new SimComponent()
+                for(int i = n+1; i < nodeCount; i++)
                 {
-                    Kind = CONNECTION_KIND,
-                    Name = $"Connection{x + 1}",
-                    Attributes = new float[3]
+                    var comp = new SimComponent()
                     {
-                            RandomLength(),    
+                        Kind = CONNECTION_KIND,
+                        Name = $"{n}-{i}",
+                        Attributes = new float[3]
+                                        {
+                            RandomLength(),
                             RandomContraction(),
-                            RandomPeriod(),    
+                            RandomPeriod(),
+                                        }
+                    };
+                    comp.CustomData = new int[2] { n, i };
+                    entity.Components.Add(comp);
+
+                    if(++connectionCounter >= connectionCount)
+                    {
+                        //  force both loops to exit
+                        i = nodeCount;
+                        n = nodeCount;
                     }
-                };
-                entity.Components.Add(comp);
-            }
+                }
+            }           
 
             return entity;
         }
 
         public float EvaluateFitness(SimEntity e)
         {
-            return (float)r.NextDouble();
+            //return (float)r.NextDouble();
+            return e.Components.SelectMany(c=> c.Attributes).Sum();
         }
 
         public SimEntity CloneEntity(SimEntity e)
@@ -96,7 +112,7 @@ namespace EvoSim.Test1
             entity.Generation = e.Generation;
             entity.Species = e.Species;
             entity.Species = e.Species;
-            entity.CustomDataArr = e.CustomDataArr;
+            entity.CustomData = e.CustomData;
 
             foreach (var c in e.Components)
             {
@@ -126,7 +142,11 @@ namespace EvoSim.Test1
             d = r.NextDouble();
             if(d < pConnCnt)
             {
-                //  TODO
+                if(r.NextDouble() < 0.5)
+                {
+                    //  decrease count
+                    //  TODO
+                }
                 return entity;
             }
 
@@ -153,6 +173,26 @@ namespace EvoSim.Test1
             return entity;
         }
 
+
+        public void SetupSimulation(SimEntity[] entities)
+        {
+            foreach(var e in entities)
+            {
+                var nodes = e.Components.Where(c => c.Kind == NODE_KIND).Select(c => c.Attributes[0]);
+                var conns = e.Components
+                                .Where(c => c.Kind == CONNECTION_KIND)
+                                .Select(c => new {
+                                    N1 = c.CustomData[0],   // from node id
+                                    N2 = c.CustomData[1],   // to node id
+                                    L = c.Attributes[0],
+                                    C = c.Attributes[1],
+                                    P = c.Attributes[2],
+                                });
+            }
+        }
+
+        public void Simulate() { }
+
         private float RandomFriction()
         {
             var f = r.Next(500, 1500) / 1000.0f; //  range 0.5 - 1.5
@@ -170,7 +210,7 @@ namespace EvoSim.Test1
         }
         private float RandomPeriod()
         {
-            var f = r.Next(10, 50)/10f;    //  range 1 - 5
+            var f = r.Next(100, 250)/100f;    //  range 1 - 2.5
             return f;
         }
     }

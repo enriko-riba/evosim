@@ -10,5 +10,8 @@
         SimEntity MutateEntity(SimEntity e);
 
         float EvaluateFitness(SimEntity e);
+
+        void SetupSimulation(SimEntity[] entities);
+        void Simulate();
     }
 }

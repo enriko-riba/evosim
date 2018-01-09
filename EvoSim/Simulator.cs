@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace EvoSim
@@ -7,7 +6,10 @@ namespace EvoSim
     class Simulator
     {
         private IEntityHandler handler;
-        private List<SimEntity> entities = new List<SimEntity>();
+        private SimEntity[] entities;
+        private GenerationInfo[] stats;
+
+        private int entityCount;
 
         public Simulator(IEntityHandler handler, int entityCount)
         {
@@ -15,43 +17,59 @@ namespace EvoSim
             this.entityCount = entityCount;
         }
 
+        public GenerationInfo GetGenerationInfo(int generation)
+        {
+            return stats[generation];
+        }
 
-        private int generation;
-        private int entityCount;
+        public int Generation { get; private set; }
 
         public void InitPopulation()
         {
-            generation = 0;
+            entities = new SimEntity[entityCount];
+            stats = new GenerationInfo[entityCount];
+
+            Generation = 0;
             for (int i =0; i< entityCount; i++)
             {
-                this.entities.Add(handler.CreateEntity());
+                this.entities[i] = handler.CreateEntity();
             }
+
+            handler.SetupSimulation(this.entities);
         }
 
         public void Advance()
         {
-            Simulate();
+            handler.Simulate();
             FinishStep();
         }
 
         private void Simulate()
         {
-
+            
         }
 
         private void FinishStep()
         {
             UpdateFitness();
-            this.entities.Sort((e1, e2) => Math.Sign(e1.Fitness - e2.Fitness));
+
+            //  calc stats
             var sumFit = this.entities.Sum(e => e.Fitness);
             var avgFit = sumFit / entityCount;
+            var stat = new GenerationInfo()
+            {
+                AvgFitness = avgFit,
+                AvgAbove = entities.Where(e => e.Fitness >= avgFit).Count(),
+                AvgBellow = entities.Where(e => e.Fitness < avgFit).Count()
+            };
+            this.stats[Generation++] = stat;
 
-            Console.WriteLine("Generation {0} avg fitness: {1}", generation, avgFit);
-            Console.WriteLine("< avg: {0}, >= avg: {1}", 
-                        entities.Where(e=> e.Fitness < avgFit).Count(), 
-                        entities.Where(e=> e.Fitness >= avgFit).Count());
-
-            generation++;
+            //  kill lowest 50% (replace with mutations)
+            for(int i = 0; i< 500; i++)
+            {
+                this.entities[i] = handler.MutateEntity(this.entities[i + 500]);
+            }
+            
         }
 
         private void UpdateFitness()
@@ -61,6 +79,8 @@ namespace EvoSim
                 var fit = handler.EvaluateFitness(this.entities[i]);
                 this.entities[i].Fitness = fit;
             }
+
+            Array.Sort(this.entities, (e1, e2) => Math.Sign(e1.Fitness - e2.Fitness));
         }
 
         private void MutatePopulation()

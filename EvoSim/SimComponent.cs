@@ -6,6 +6,10 @@
         public float[] Attributes{ get; set; }
         public string Name { get; set; }
 
+        public int[] CustomData { get; set; }
+
+        public override string ToString() => Name;
+
         static public SimComponent Clone(SimComponent c)
         {
             var clone = new SimComponent();
