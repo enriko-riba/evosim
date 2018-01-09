@@ -7,6 +7,8 @@ namespace EvoSim
         static void Main(string[] args)
         {
             Console.WriteLine("Hello World!");
+            var s = new Simulator();
+            s.InitPopulation();
         }
     }
 }
