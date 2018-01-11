@@ -69,6 +69,10 @@ namespace EvoSim
                     statGeneration -= 10;
                     if (statGeneration < 0) statGeneration = 0;
                 }
+                else
+                {
+                    continue;
+                }
                 DisplayStats(statGeneration);
             }
         }

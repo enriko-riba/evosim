@@ -47,14 +47,14 @@ namespace EvoSim.Test1
 
         public SimEntity CreateEntity()
         {
-            var entity = new SimEntity();            
+            var entity = new SimEntity();
 
             //  generate random node count
             var nodeCount = r.Next(MIN_NODES, MAX_NODES + 1);
-            
+
             //  max connections = n * (n-1) / 2
             var maxConnections = (nodeCount * (nodeCount - 1)) / 2;
-            var connectionCount = r.Next(nodeCount-1, maxConnections + 1); 
+            var connectionCount = r.Next(nodeCount - 1, maxConnections + 1);
 
             entity.Name = $"N{nodeCount}C{connectionCount}";
             for (int n = 0; n < nodeCount; n++)
@@ -69,9 +69,9 @@ namespace EvoSim.Test1
             }
 
             int connectionCounter = 0;
-            for(int n = 0; n<nodeCount-1; n++ )
+            for (int n = 0; n < nodeCount - 1; n++)
             {
-                for(int i = n+1; i < nodeCount; i++)
+                for (int i = n + 1; i < nodeCount; i++)
                 {
                     var comp = new SimComponent()
                     {
@@ -87,14 +87,14 @@ namespace EvoSim.Test1
                     comp.CustomData = new int[2] { n, i };
                     entity.Components.Add(comp);
 
-                    if(++connectionCounter >= connectionCount)
+                    if (++connectionCounter >= connectionCount)
                     {
                         //  force both loops to exit
                         i = nodeCount;
                         n = nodeCount;
                     }
                 }
-            }           
+            }
 
             return entity;
         }
@@ -102,7 +102,7 @@ namespace EvoSim.Test1
         public float EvaluateFitness(SimEntity e)
         {
             //return (float)r.NextDouble();
-            return e.Components.SelectMany(c=> c.Attributes).Sum();
+            return e.Components.SelectMany(c => c.Attributes).Sum();
         }
 
         public SimEntity CloneEntity(SimEntity e)
@@ -124,64 +124,94 @@ namespace EvoSim.Test1
 
         public SimEntity MutateEntity(SimEntity e)
         {
-            var entity = CloneEntity(e);
+            const float PROBABILITY_NODE_COUNT_CHANGE = 0.1f;
+            const float PROBABILITY_CONN_COUNT_CHANGE = 0.2f;
 
-            const double pNodeCnt = 0.1;
-            const double pConnCnt = 0.2;
-            const double pAtr = 1.0;
-
-            //  Change node count
-            var d = r.NextDouble();
-            if (d < pNodeCnt)
+            SimEntity mutation;
+            if (IsEvent(PROBABILITY_NODE_COUNT_CHANGE) && MutateNodeCount(e, out mutation))
             {
-                //  TODO
-                return entity;
+                return mutation;
             }
 
-            //  Change connection count
-            d = r.NextDouble();
-            if(d < pConnCnt)
+            if (IsEvent(PROBABILITY_CONN_COUNT_CHANGE) && MutateConnectionCount(e, out mutation))
             {
-                if(r.NextDouble() < 0.5)
-                {
-                    //  decrease count
-                    //  TODO
-                }
-                return entity;
+                return mutation;
             }
 
+            //  more common case: mutate a single attribute
+            mutation = MutateAttribute(e);
+            return mutation;
+        }
+
+        #region Mutation variations
+        private SimEntity MutateAttribute(SimEntity e)
+        {
+            var mutation = CloneEntity(e);
 
             //  Change component
-            var i = r.Next(0, entity.Components.Count);
-            var component = entity.Components[i];
-            
+            var i = r.Next(0, mutation.Components.Count);
+            var component = mutation.Components[i];
+            var delta = ((float)r.NextDouble() - 0.5f) / 5f;//   value in range [-.1, 0.1]
+
             //  mutation range depends on kind
-            if(component.Kind == NODE_KIND)
+            if (component.Kind == NODE_KIND)
             {
-                component.Attributes[0] = RandomFriction();
+                component.Attributes[0] += delta;
             }
             else
             {
                 i = r.Next(0, component.Attributes.Length);
                 if (i == 0)
-                    component.Attributes[0] = RandomLength();
-                else if(i == 1)
-                    component.Attributes[1] = RandomContraction();
+                    component.Attributes[0] += delta;
+                else if (i == 1)
+                    component.Attributes[1] += delta;
                 else
-                    component.Attributes[2] = RandomPeriod();
+                    component.Attributes[2] += delta;
             }
-            return entity;
+            return mutation;
         }
 
+        private bool MutateNodeCount(SimEntity e, out SimEntity mutation)
+        {
+            mutation = CloneEntity(e);
+            //  TODO: change node count
+            return false;
+        }
+        private bool MutateConnectionCount(SimEntity e, out SimEntity mutation)
+        {
+            mutation = CloneEntity(e);
+            var nodes = mutation.Components.Where(m => m.Kind == NODE_KIND);
+            var connections = mutation.Components.Where(m => m.Kind == CONNECTION_KIND);
+            var nCount = nodes.Count();
+
+            if (IsEvent(0.5f))
+            {
+                //  do not allow going bellow minimum
+                var minConn = nCount - 1;
+                if (connections.Count() > minConn)
+                {
+                    //  TODO: decrease count
+                    return false;
+                }
+            }
+            else
+            {
+                //  TODO: add a new connection
+                return false;
+            }
+            return false;
+        }
+        #endregion
 
         public void SetupSimulation(SimEntity[] entities)
         {
-            foreach(var e in entities)
+            foreach (var e in entities)
             {
                 var nodes = e.Components.Where(c => c.Kind == NODE_KIND).Select(c => c.Attributes[0]);
                 var conns = e.Components
                                 .Where(c => c.Kind == CONNECTION_KIND)
-                                .Select(c => new {
+                                .Select(c => new
+                                {
                                     N1 = c.CustomData[0],   // from node id
                                     N2 = c.CustomData[1],   // to node id
                                     L = c.Attributes[0],
@@ -210,8 +240,13 @@ namespace EvoSim.Test1
         }
         private float RandomPeriod()
         {
-            var f = r.Next(100, 250)/100f;    //  range 1 - 2.5
+            var f = r.Next(100, 250) / 100f;    //  range 1 - 2.5
             return f;
+        }
+
+        private bool IsEvent(float percentage)
+        {
+            return r.NextDouble() < percentage;
         }
     }
 }

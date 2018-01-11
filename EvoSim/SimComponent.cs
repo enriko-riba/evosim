@@ -15,7 +15,7 @@
             var clone = new SimComponent();
             clone.Kind = c.Kind;
             clone.Name = c.Name;
-            clone.Attributes = (float[])c.Attributes.Clone(); //c.Attributes; // (float[])c.Attributes.Clone();
+            clone.Attributes = (float[])c.Attributes.Clone(); 
             return clone;
         }
     }
