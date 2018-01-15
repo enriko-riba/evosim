@@ -13,6 +13,6 @@
         float EvaluateFitness(SimEntity e);
 
         void SetupSimulation(SimEntity[] entities);
-        void Simulate();
+        void Simulate(SimEntity[] entities, float seconds);
     }
 }

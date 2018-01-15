@@ -16,6 +16,10 @@
             clone.Kind = c.Kind;
             clone.Name = c.Name;
             clone.Attributes = (float[])c.Attributes.Clone(); 
+            if(c.CustomData!=null)
+            {
+                clone.CustomData = (int[])c.CustomData.Clone();
+            }
             return clone;
         }
     }

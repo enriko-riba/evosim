@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using ParticlePhysics;
+using System.Collections.Generic;
 
 namespace EvoSim
 {
@@ -8,6 +9,8 @@ namespace EvoSim
         {
             Components = new List<SimComponent>();
         }
+
+        public int Id { get; set; }
         public string Name { get; set; }
         public int Generation { get; set; }
         public string Species { get; set; }
@@ -19,6 +22,7 @@ namespace EvoSim
 
         public int[] CustomData { get; set; }
 
-        public override string ToString() => $"{Generation}-{Name}";
+        public Simulation Simulation { get; set; }
+        public override string ToString() => $"{Generation}-{Name}[{Id}]";
     }
 }

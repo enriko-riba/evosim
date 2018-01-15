@@ -11,25 +11,27 @@ namespace EvoSim
             p.Start();
             
         }
-
+        const int ENTITIES = 4;
         const int GENS = 1000;
         private Simulator s;
 
         public void Start()
         {
             var h = new Test1.Testhandler();
-            this.s = new Simulator(h, GENS);
+            this.s = new Simulator(h, ENTITIES);
             s.InitPopulation();
 
             ConsoleKeyInfo k;
 
             Console.WriteLine("Created population...");
-            //Console.WriteLine("Press a to advance, esc to exit");
+            Console.WriteLine("Simulating...");
             var sw = new Stopwatch();
             sw.Start();
-            while (s.Generation < 1000)
+            while (s.Generation < GENS)
             {
                 s.Advance();
+                var st = s.GetGenerationInfo(s.Generation-1);
+                Console.WriteLine("finished generation {0} at {1}ms, avg fitness: {2}, best fitness: {3}", s.Generation, sw.ElapsedMilliseconds, st.AvgFitness, st.BestFitness);
                 //var k = Console.ReadKey(true);
                 //if (k.Key == ConsoleKey.A)
                 //{
@@ -69,6 +71,13 @@ namespace EvoSim
                     statGeneration -= 10;
                     if (statGeneration < 0) statGeneration = 0;
                 }
+                else if(k.Key == ConsoleKey.S)
+                {
+                    Console.WriteLine("Enter entity id to resimulate:");
+                    var idStr = Console.ReadLine();
+                    var id = int.Parse(idStr);
+                    var entity = s.Simulate(id, 5); //  simulate 5 seconds life time
+                }
                 else
                 {
                     continue;
@@ -80,7 +89,7 @@ namespace EvoSim
         private void DisplayStats(int generation)
         {
             GenerationInfo gi = s.GetGenerationInfo(generation);
-            Console.WriteLine("Generation {0} avg fitness: {1}, < avg: {2}, >= avg: {3}", generation, gi.AvgFitness, gi.AvgBellow, gi.AvgAbove);
+            Console.WriteLine("Generation {0,3:G3} avg fitness: {1,8:N4}, <avg: {2,3}, >=avg: {3,3}, best fitness: {4,10:N6}, entity: {5}", generation, gi.AvgFitness, gi.AvgBellow, gi.AvgAbove, gi.BestFitness, gi.BestEntity);
         }
     }
 }

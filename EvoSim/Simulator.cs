@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace EvoSim
@@ -7,7 +8,7 @@ namespace EvoSim
     {
         private IEntityHandler handler;
         private SimEntity[] entities;
-        private GenerationInfo[] stats;
+        private List<GenerationInfo> stats;
 
         private int entityCount;
 
@@ -27,8 +28,7 @@ namespace EvoSim
         public void InitPopulation()
         {
             entities = new SimEntity[entityCount];
-            stats = new GenerationInfo[entityCount];
-
+            stats = new List<GenerationInfo>();
             Generation = 0;
             for (int i =0; i< entityCount; i++)
             {
@@ -40,15 +40,19 @@ namespace EvoSim
 
         public void Advance()
         {
-            handler.Simulate();
+            const float SIMULATE_SECONDS = 5;
+            handler.Simulate(this.entities, SIMULATE_SECONDS);
             FinishStep();
+            this.Generation++;
         }
 
-        private void Simulate()
+        public SimEntity Simulate(int id, float seconds)
         {
-            
+            var e = this.entities[id];  //  TODO: fix this ... save all entities in dictionary and return by id
+            const float SIMULATE_SECONDS = 5;
+            this.handler.Simulate(new SimEntity[] { e }, SIMULATE_SECONDS);
+            return e;
         }
-
         private void FinishStep()
         {
             UpdateFitness();
@@ -56,21 +60,27 @@ namespace EvoSim
             //  calc stats
             var sumFit = this.entities.Sum(e => e.Fitness);
             var avgFit = sumFit / entityCount;
+            var bf = entities.Max(e => e.Fitness);
             var stat = new GenerationInfo()
             {
                 AvgFitness = avgFit,
                 AvgAbove = entities.Where(e => e.Fitness >= avgFit).Count(),
-                AvgBellow = entities.Where(e => e.Fitness < avgFit).Count()
+                AvgBellow = entities.Where(e => e.Fitness < avgFit).Count(),
+                BestFitness = bf,
+                BestEntity = entities.First(e=> e.Fitness == bf)
             };
-            this.stats[Generation++] = stat;
+            this.stats.Add(stat);
+            //this.stats[Generation++] = stat;
 
             //  kill lowest 50% (replace with mutations)
-            for(int i = 0; i< 500; i++)
+            var half = this.entityCount / 2;
+            for(int i = 0; i< half; i++)
             {
-                this.entities[i] = handler.MutateEntity(this.entities[i + 500]);
-            }
-            
+                this.entities[i] = handler.MutateEntity(this.entities[i + half]);
+                this.entities[i].Generation = this.Generation;
+            }            
         }
+
 
         private void UpdateFitness()
         {
@@ -81,14 +91,6 @@ namespace EvoSim
             }
 
             Array.Sort(this.entities, (e1, e2) => Math.Sign(e1.Fitness - e2.Fitness));
-        }
-
-        private void MutatePopulation()
-        {
-            for (int i = 0; i < entityCount; i++)
-            {
-                var me = handler.MutateEntity(this.entities[i]);
-            }
-        }
+        }        
     }
 }

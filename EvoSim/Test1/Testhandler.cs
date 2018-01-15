@@ -1,4 +1,6 @@
-﻿using System;
+﻿using ParticlePhysics;
+using System;
+using System.Diagnostics;
 using System.Linq;
 
 namespace EvoSim.Test1
@@ -10,6 +12,8 @@ namespace EvoSim.Test1
         const int MIN_NODES = 2;
         const int MAX_NODES = 4;
         private Random r = new Random();
+
+        private int eid = 0;
 
         public SimEntity CreateEntity(string genome)
         {
@@ -57,6 +61,8 @@ namespace EvoSim.Test1
             var connectionCount = r.Next(nodeCount - 1, maxConnections + 1);
 
             entity.Name = $"N{nodeCount}C{connectionCount}";
+            entity.Id = ++eid;
+
             for (int n = 0; n < nodeCount; n++)
             {
                 var comp = new SimComponent()
@@ -102,7 +108,9 @@ namespace EvoSim.Test1
         public float EvaluateFitness(SimEntity e)
         {
             //return (float)r.NextDouble();
-            return e.Components.SelectMany(c => c.Attributes).Sum();
+            //return e.Components.SelectMany(c => c.Attributes).Sum();
+            Debug.Assert(!float.IsNaN(e.Simulation.Particles[0].Position.X));
+            return e.Simulation.Particles[0].Position.X;
         }
 
         public SimEntity CloneEntity(SimEntity e)
@@ -112,8 +120,11 @@ namespace EvoSim.Test1
             entity.Generation = e.Generation;
             entity.Species = e.Species;
             entity.Species = e.Species;
-            entity.CustomData = e.CustomData;
-
+            entity.Id = ++eid;
+            if (e.CustomData != null)
+            {
+                entity.CustomData = (int[])e.CustomData.Clone();
+            }
             foreach (var c in e.Components)
             {
                 var clone = SimComponent.Clone(c);
@@ -128,18 +139,19 @@ namespace EvoSim.Test1
             const float PROBABILITY_CONN_COUNT_CHANGE = 0.2f;
 
             SimEntity mutation;
-            if (IsEvent(PROBABILITY_NODE_COUNT_CHANGE) && MutateNodeCount(e, out mutation))
-            {
-                return mutation;
-            }
+            //if (IsEvent(PROBABILITY_NODE_COUNT_CHANGE) && MutateNodeCount(e, out mutation))
+            //{
+            //    return mutation;
+            //}
 
-            if (IsEvent(PROBABILITY_CONN_COUNT_CHANGE) && MutateConnectionCount(e, out mutation))
-            {
-                return mutation;
-            }
+            //if (IsEvent(PROBABILITY_CONN_COUNT_CHANGE) && MutateConnectionCount(e, out mutation))
+            //{
+            //    return mutation;
+            //}
 
             //  more common case: mutate a single attribute
             mutation = MutateAttribute(e);
+            CreateEntitySimulation(mutation);
             return mutation;
         }
 
@@ -156,19 +168,38 @@ namespace EvoSim.Test1
             //  mutation range depends on kind
             if (component.Kind == NODE_KIND)
             {
-                component.Attributes[0] += delta;
+                component.Attributes[0] = ClampRange(component.Attributes[0]+delta, 0, 1);               
             }
             else
             {
                 i = r.Next(0, component.Attributes.Length);
                 if (i == 0)
-                    component.Attributes[0] += delta;
+                {
+                    //  length
+                    component.Attributes[0] = ClampRange(component.Attributes[0] + delta, 0, 5);
+                }
                 else if (i == 1)
-                    component.Attributes[1] += delta;
+                {
+                    //  contract.
+                    component.Attributes[1] = ClampRange(component.Attributes[1] + delta, 0.3f, 0.9f);
+                }
                 else
-                    component.Attributes[2] += delta;
+                {
+                    //  period
+                    component.Attributes[2] = ClampRange(component.Attributes[2] + delta, 1f, 2.5f);
+
+                }
             }
             return mutation;
+        }
+
+        private float ClampRange(float value, float minValue, float maxValue)
+        {
+            if (value < minValue)
+                return minValue;
+            else if (value > maxValue)
+                return maxValue;
+            return value;
         }
 
         private bool MutateNodeCount(SimEntity e, out SimEntity mutation)
@@ -207,25 +238,29 @@ namespace EvoSim.Test1
         {
             foreach (var e in entities)
             {
-                var nodes = e.Components.Where(c => c.Kind == NODE_KIND).Select(c => c.Attributes[0]);
-                var conns = e.Components
-                                .Where(c => c.Kind == CONNECTION_KIND)
-                                .Select(c => new
-                                {
-                                    N1 = c.CustomData[0],   // from node id
-                                    N2 = c.CustomData[1],   // to node id
-                                    L = c.Attributes[0],
-                                    C = c.Attributes[1],
-                                    P = c.Attributes[2],
-                                });
+                CreateEntitySimulation(e);
             }
         }
 
-        public void Simulate() { }
+        public void Simulate(SimEntity[] entities, float seconds)
+        {
+            const int FIXED_TIMESTEP = 20;
+            var miliseconds = seconds * 1000;
+            var itterations = miliseconds / FIXED_TIMESTEP;
+
+            var t = TimeSpan.FromMilliseconds(FIXED_TIMESTEP);
+            foreach (var e in entities)
+            {
+                var s = e.Simulation;
+                s.Reset();                
+                for (int i = 0; i < itterations; i++) // 20 * 500 = 10sec
+                    s.DoStep(t);
+            }
+        }
 
         private float RandomFriction()
         {
-            var f = r.Next(500, 1500) / 1000.0f; //  range 0.5 - 1.5
+            var f = r.Next(500, 1000) / 1000.0f; //  range 0.5 - 1.0
             return f;
         }
         private float RandomLength()
@@ -247,6 +282,37 @@ namespace EvoSim.Test1
         private bool IsEvent(float percentage)
         {
             return r.NextDouble() < percentage;
+        }
+
+        private void CreateEntitySimulation(SimEntity e)
+        {
+            var nodes = e.Components.Where(c => c.Kind == NODE_KIND).Select(c => c.Attributes[0]);
+            var conns = e.Components
+                            .Where(c => c.Kind == CONNECTION_KIND)
+                            .Select(c => new
+                            {
+                                N1 = c.CustomData[0],   // node id: from
+                                N2 = c.CustomData[1],   // node id: to
+                                L = c.Attributes[0],
+                                C = c.Attributes[1],
+                                P = c.Attributes[2],
+                            });
+
+            var s = new Simulation();
+            foreach (var friction in nodes)
+            {
+                //var pos = new System.Numerics.Vector2(0, 1);
+                // var p = new Particle(pos);
+                var p = new Particle();
+                p.Friction = friction;
+                s.AddParticle(p);
+            }
+            foreach (var conn in conns)
+            {
+                var pl = new ParticleLink(s.Particles[conn.N1], s.Particles[conn.N2], conn.L, conn.P, conn.C);
+                s.AddParticleLink(pl);
+            }
+            e.Simulation = s;
         }
     }
 }
